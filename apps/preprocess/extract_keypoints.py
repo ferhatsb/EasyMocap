@@ -80,6 +80,11 @@ config = {
         'min_tracking_confidence': 0.1,
         'static_image_mode': False,
     },
+    'openpifpaf': {
+        'checkpoint': 'shufflenetv2k30-wholebody',
+        'force': False,
+        'ext': '.jpg'
+    }
 }
 
 if __name__ == "__main__":
@@ -94,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, default='openpose', choices=[
         'openpose', 'feet', 'feetcrop', 'openposecrop',
         'yolo-hrnet', 'yolo', 'hrnet', 
-        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face'], 
+        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face',  'openpifpaf'],
         help="model to extract joints from image")
     # Openpose
     parser.add_argument('--openpose', type=str, 
@@ -183,6 +188,10 @@ if __name__ == "__main__":
             from easymocap.estimator.mediapipe_wrapper import extract_2d
             config[mode]['ext'] = args.ext
             extract_2d(image_root, annot_root, config[mode], mode=mode.replace('mp-', ''))
+        elif mode == 'openpifpaf':
+            from easymocap.estimator.openpifpaf_wrapper import extract_2d
+            config[mode]['ext'] = args.ext
+            extract_2d(image_root, annot_root, config[mode])
         if mode == 'feetcrop' or mode == 'openposecrop':
             from easymocap.estimator.openpose_wrapper import FeetEstimatorByCrop
             config[mode]['openpose'] = args.openpose
