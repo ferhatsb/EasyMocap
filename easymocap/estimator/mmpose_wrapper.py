@@ -2,7 +2,17 @@ import numpy as np
 import cv2
 from easymocap.mytools import Timer
 import numpy as np
-import openpifpaf
+
+from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
+                         process_mmdet_results, vis_pose_result)
+from mmpose.datasets import DatasetInfo
+
+try:
+    from mmdet.apis import inference_detector, init_detector
+
+    has_mmdet = True
+except (ImportError, ModuleNotFoundError):
+    has_mmdet = False
 
 
 def bbox_from_keypoints(keypoints, rescale=1.2, detection_thresh=0.05, MIN_PIXEL=5):
@@ -32,15 +42,40 @@ class Detector:
     NUM_HAND = 21
     NUM_FACE = 68
 
+    body = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12],
+            [13, 14], [15, 16]]
+    foot = [[17, 20], [18, 21], [19, 22]]
+
+    face = [[23, 39], [24, 38], [25, 37], [26, 36], [27, 35], [28, 34],
+            [29, 33], [30, 32], [40, 49], [41, 48], [42, 47], [43, 46],
+            [44, 45], [54, 58], [55, 57], [59, 68], [60, 67], [61, 66],
+            [62, 65], [63, 70], [64, 69], [71, 77], [72, 76], [73, 75],
+            [78, 82], [79, 81], [83, 87], [84, 86], [88, 90]]
+
+    hand = [[91, 112], [92, 113], [93, 114], [94, 115], [95, 116],
+            [96, 117], [97, 118], [98, 119], [99, 120], [100, 121],
+            [101, 122], [102, 123], [103, 124], [104, 125], [105, 126],
+            [106, 127], [107, 128], [108, 129], [109, 130], [110, 131],
+            [111, 132]]
+
     def __init__(self, nViews, show=False, **cfg) -> None:
         self.nViews = nViews
         self.show = show
         self.NUM_BODY = 25
-        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19,
-                                 20, 21, 22]
-        model_name = openpifpaf.Predictor
+        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 20, 21, 22, 17, 18, 19]
+
+        det_config = cfg['det_config']
+        det_checkpoint = cfg['det_checkpoint']
+        device = cfg['device']
+        pose_config = cfg['pose_config']
+        pose_checkpoint = cfg['pose_checkpoint']
+
+        det_model = init_detector(det_config, det_checkpoint, device=device.lower())
+        # build the pose model from a config file and a checkpoint file
+        pose_model = init_pose_model(pose_config, pose_checkpoint, device=device.lower())
+
         self.models = [
-            model_name(**cfg) for nv in range(nViews)
+            [det_model, pose_model] for nv in range(nViews)
         ]
 
     @staticmethod
@@ -106,18 +141,35 @@ class Detector:
             image = cv2.cvtColor(image_, cv2.COLOR_BGR2RGB)
             image.flags.writeable = False
             with Timer('- detect', True):
-                initial_results = self.models[nv].numpy_image(image)
+                det_model = self.models[nv][0]
+                pose_model = self.models[nv][1]
+
+                # test a single image, the resulting box is (x1, y1, x2, y2)
+                mmdet_results = inference_detector(det_model, image)
+
+                # keep the person class bounding boxes.
+                person_results = process_mmdet_results(mmdet_results, 1)
+
+                pose_results, returned_outputs = inference_top_down_pose_model(
+                    pose_model,
+                    image,
+                    person_results,
+                    bbox_thr=0.3,
+                    format='xyxy',
+                    return_heatmap=False,
+                    outputs=None)
+
             data = {
                 'personID': 0,
             }
 
-            if len(initial_results[0]) > 0:
-                initial_results = initial_results[0][0].data
+            if len(pose_results[0]) > 0:
+                pose_results = pose_results[0]['keypoints']
                 results = type('', (object,), {
-                    'left_hand_landmarks': initial_results[91:112],
-                    'right_hand_landmarks': initial_results[112:133],
-                    'face_landmarks': initial_results[23:91],
-                    'pose_landmarks': initial_results[0:23]  # body + foot
+                    'left_hand_landmarks': pose_results[112:133],
+                    'right_hand_landmarks': pose_results[91:112],
+                    'face_landmarks': pose_results[23:91],
+                    'pose_landmarks': pose_results[0:23]  # body + foot
                 })()
             else:
                 results = type('', (object,), {
@@ -168,6 +220,7 @@ def extract_2d(image_root, annot_root, config):
         annots['filename'] = os.sep.join(imgname.split(os.sep)[-2:])
         save_annot(annotname, annots)
 
+
 if __name__ == "__main__":
     import argparse
 
@@ -181,11 +234,14 @@ if __name__ == "__main__":
     path = args.path
     out = args.out
     config = {
-        'openpifpaf': {
-            'checkpoint': 'shufflenetv2k30-wholebody',
-            'json_data': True,
+        'mmpose': {
+            'det_config': 'estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
+            'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
+            'pose_config': 'estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
+            'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
+            'device': 'cpu',
             'force': False,
             'ext': '.jpg'
         }
     }
-    extract_2d(path, out, config['openpifpaf'])
+    extract_2d(path, out, config['mmpose'])

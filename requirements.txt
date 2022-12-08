@@ -8,4 +8,9 @@ termcolor
 chumpy
 mediapipe
 func_timeout
+
 openpifpaf
+
+mmpose
+mmcv-full
+mmdet
