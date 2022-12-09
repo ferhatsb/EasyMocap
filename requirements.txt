@@ -6,7 +6,8 @@ yacs
 tabulate
 termcolor
 chumpy
-mediapipe
+mediapipe; sys_platform != 'darwin' or platform_machine != 'arm64'
+mediapipe-silicon; sys_platform == 'darwin' and platform_machine == 'arm64'
 func_timeout
 
 openpifpaf
