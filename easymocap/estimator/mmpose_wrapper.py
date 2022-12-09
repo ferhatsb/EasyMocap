@@ -212,6 +212,12 @@ def extract_2d(image_root, annot_root, config):
 
     detector = Detector(nViews=1, show=False, **config)
     imgnames = sorted(glob(join(image_root, '*' + ext)))
+    images = []
+
+    for imgname in imgnames:
+        image = cv2.imread(imgname)
+        images.append(image)
+
     for imgname in tqdm(imgnames, desc='{:10s}'.format(os.path.basename(annot_root))):
         base = os.path.basename(imgname).replace(ext, '')
         annotname = join(annot_root, base + '.json')
