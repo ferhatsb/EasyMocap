@@ -19,9 +19,9 @@ def bbox_from_keypoints(keypoints, rescale=1.2, detection_thresh=0.05, MIN_PIXEL
         return [0, 0, 100, 100, 0]
     bbox_size = bbox_size * rescale
     bbox = [
-        center[0] - bbox_size[0]/2, 
+        center[0] - bbox_size[0]/2,
         center[1] - bbox_size[1]/2,
-        center[0] + bbox_size[0]/2, 
+        center[0] + bbox_size[0]/2,
         center[1] + bbox_size[1]/2,
         keypoints[valid, 2].mean()
     ]
@@ -39,6 +39,13 @@ class Detector:
         if self.to_openpose:
             self.NUM_BODY = 25
             self.openpose25_in_33 = [0, 0, 12, 14, 16, 11, 13, 15, 0, 24, 26, 28, 23, 25, 27, 5, 2, 8, 7, 31, 31, 29, 32, 32, 30]
+            bottom_face17 = [127, 93, 132, 56, 172, 136, 149, 148, 152, 377, 378, 365, 397, 288, 361, 323, 356]
+            eyebrows = [113, 224, 222, 221, 193, 417, 441, 442, 444, 342]
+            nose = [168, 197, 5, 1, 98, 97, 2, 326, 327]
+            eyes = [130, 29, 56, 243, 26, 24, 463, 286, 259, 359, 254, 256]
+            lips = [57, 40, 37, 0, 267, 270, 287, 375, 405, 17, 181, 146, 62, 80, 13, 310, 292, 318, 14, 88]
+            iris = [159, 386]
+            self.openpose_face70_in_468 = bottom_face17 + eyebrows + nose + eyes + lips + iris
         if model_type == 'holistic':
             model_name = mp_holistic.Holistic
         elif model_type == 'pose':
@@ -54,7 +61,7 @@ class Detector:
         self.models = [
             model_name(**cfg) for nv in range(nViews)
         ]
-    
+
     @staticmethod
     def to_array(pose, W, H, start=0):
         N = len(pose.landmark) - start
@@ -77,7 +84,7 @@ class Detector:
             poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
             poses[1, 2] = poses[[2, 5], 2].min(axis=0)
         return poses, bbox_from_keypoints(poses)
-    
+
     def get_hand(self, pose, W, H):
         if pose is None:
             bodies = np.zeros((self.NUM_HAND, 3))
@@ -91,6 +98,8 @@ class Detector:
             bodies = np.zeros((self.NUM_FACE, 3))
             return bodies, [0, 0, 100, 100, 0]
         poses = self.to_array(pose, W, H)
+        if self.to_openpose:
+            poses = poses[self.openpose_face70_in_468]
         poses[:, 2] = 1.
         return poses, bbox_from_keypoints(poses)
 
@@ -124,7 +133,7 @@ class Detector:
             keypoints, bbox = self.get_body(results.pose_landmarks, image_width, image_height)
             data['keypoints'] = keypoints
             data['bbox'] = bbox
-    
+
     def process_hand(self, data, results, image_width, image_height):
         lm = {'Left': None, 'Right': None}
         if self.model_type in ['hand', 'handl', 'handr']:
@@ -160,7 +169,7 @@ class Detector:
             if self.model_type in ['hand', 'handr', 'holistic']:
                 data['handr2d'] = handr.tolist()
                 data['bbox_handr2d'] = bbox_handr
-    
+
     def process_face(self, data, results, image_width, image_height, image=None):
         if self.model_type == 'holistic':
             face2d, bbox_face2d = self.get_face(results.face_landmarks, image_width, image_height)
