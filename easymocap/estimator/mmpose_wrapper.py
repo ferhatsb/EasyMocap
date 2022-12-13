@@ -104,11 +104,11 @@ class Detector:
             bodies = np.zeros((self.NUM_BODY, 3))
             return bodies, [0, 0, 100, 100, 0]
         poses = pose[self.openpose25_in_23]
-        poses[8, :2] = poses[[11, 12], :2].mean(axis=0)
-        poses[8, 2] = poses[[11, 12], 2].min(axis=0)
-        poses[1, :2] = poses[[5, 6], :2].mean(axis=0)
-        poses[1, 2] = poses[[5, 6], 2].min(axis=0)
-        return poses, bbox_from_keypoints(poses)
+        poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
+        poses[8, 2] = poses[[9, 12], 2].min(axis=0)
+        poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
+        poses[1, 2] = poses[[2, 5], 2].min(axis=0)
+        return poses
 
     def get_hand(self, pose, W, H):
         if pose is None:
@@ -123,9 +123,9 @@ class Detector:
         return pose, bbox_from_keypoints(pose)
 
     def process_body(self, data, results, image_width, image_height):
-        keypoints, bbox = self.get_body(results.pose_landmarks, image_width, image_height)
+        keypoints = self.get_body(results.pose_landmarks[0], image_width, image_height)
         data['keypoints'] = keypoints
-        data['bbox'] = bbox
+        data['bbox'] = results.pose_landmarks[1]
 
     def process_hand(self, data, results, image_width, image_height):
         lm = {'Left': None, 'Right': None}
@@ -172,12 +172,14 @@ class Detector:
             }
 
             if len(pose_results[0]) > 0:
+                pose_bbox = pose_results[0]['bbox']
                 pose_results = pose_results[0]['keypoints']
+
                 results = type('', (object,), {
                     'left_hand_landmarks': pose_results[91:112],
                     'right_hand_landmarks': pose_results[112:133],
                     'face_landmarks': pose_results[23:91],
-                    'pose_landmarks': pose_results[0:23]  # body + foot
+                    'pose_landmarks': [pose_results[0:23], pose_bbox]  # body + foot
                 })()
             else:
                 results = type('', (object,), {
@@ -220,11 +222,6 @@ def extract_2d(image_root, annot_root, config):
 
     detector = Detector(nViews=1, show=False, **config)
     imgnames = sorted(glob(join(image_root, '*' + ext)))
-    images = []
-
-    for imgname in imgnames:
-        image = cv2.imread(imgname)
-        images.append(image)
 
     for imgname in tqdm(imgnames, desc='{:10s}'.format(os.path.basename(annot_root))):
         base = os.path.basename(imgname).replace(ext, '')
@@ -249,9 +246,9 @@ if __name__ == "__main__":
     out = args.out
     config = {
         'mmpose': {
-            'det_config': 'estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
+            'det_config': 'easymocap/estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
             'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
-            'pose_config': 'estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
+            'pose_config': 'easymocap/estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
             'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
             'device': 'cpu',
             'force': False,
