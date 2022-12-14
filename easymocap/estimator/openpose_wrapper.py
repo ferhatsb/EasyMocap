@@ -41,11 +41,11 @@ def run_openpose(image_root, annot_root, config):
     os.system(cmd)
     os.chdir(pwd)
 
-def convert_from_openpose(src, dst, image_root, ext):
+def convert_from_openpose(src, dst, image_root, ext, body25b=False):
     # convert the 2d pose from openpose
     inputlist = sorted(os.listdir(src))
     for inp in tqdm(inputlist, desc='{:10s}'.format(os.path.basename(dst))):
-        annots = load_openpose(join(src, inp))
+        annots = load_openpose(join(src, inp), body25b)
         base = inp.replace('_keypoints.json', '')
         annotname = join(dst, base+'.json')
         imgname = join(image_root, inp.replace('_keypoints.json', ext))
@@ -62,12 +62,12 @@ def extract_2d(image_root, annot_root, tmp_root, config):
         run_openpose(image_root, tmp_root, config)
     # TODO: add current task to global_tasks
     thread = Process(target=convert_from_openpose, 
-        args=(tmp_root, annot_root, image_root, config['ext'])) # 应该不存在任何数据竞争
+        args=(tmp_root, annot_root, image_root, config['ext'], config['body25b'])) # 应该不存在任何数据竞争
     thread.start()
     global_tasks.append(thread)
     return global_tasks
 
-def load_openpose(opname):
+def load_openpose(opname, body25b):
     mapname = {
         'face_keypoints_2d':'face2d', 
         'hand_left_keypoints_2d':'handl2d', 
@@ -79,6 +79,10 @@ def load_openpose(opname):
     for i, d in enumerate(data['people']):
         keypoints = d['pose_keypoints_2d']
         keypoints = np.array(keypoints).reshape(-1, 3)
+        if body25b:
+            keypoints = keypoints[[0, 17, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 19, 20, 21, 22, 23, 24], :3]
+            keypoints[8, :2] = keypoints[[9, 12], :2].mean(axis=0)
+            keypoints[8, 2] = keypoints[[9, 12], 2].min(axis=0)
         annot = {
             'bbox': bbox_from_keypoints(keypoints),
             'personID': pid + i,
