@@ -144,6 +144,8 @@ class Detector:
 
     def __call__(self, images):
         annots_all = []
+
+
         for nv, image_ in enumerate(images):
             image_height, image_width, _ = image_.shape
             image = cv2.cvtColor(image_, cv2.COLOR_BGR2RGB)
@@ -152,6 +154,15 @@ class Detector:
                 det_model = self.models[nv][0]
                 pose_model = self.models[nv][1]
 
+                dataset = pose_model.cfg.data['test']['type']
+                dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+                if dataset_info is None:
+                    print(
+                        'Please set `dataset_info` in the config.'
+                        'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+                        DeprecationWarning)
+                else:
+                    dataset_info = DatasetInfo(dataset_info)
                 # test a single image, the resulting box is (x1, y1, x2, y2)
                 mmdet_results = inference_detector(det_model, image)
 
@@ -164,6 +175,8 @@ class Detector:
                     person_results,
                     bbox_thr=0.3,
                     format='xyxy',
+                    dataset=dataset,
+                    dataset_info=dataset_info,
                     return_heatmap=False,
                     outputs=None)
 
@@ -250,7 +263,7 @@ if __name__ == "__main__":
             'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
             'pose_config': 'easymocap/estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
             'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
-            'device': 'cpu',
+            'device': 'cuda',
             'force': False,
             'ext': '.jpg'
         }

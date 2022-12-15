@@ -1,3 +1,7 @@
+_base_ = [
+    './_base_/default_runtime.py',
+    './_base_/datasets/coco_wholebody.py'
+]
 load_from = 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_384x288_dark-741844ba_20200812.pth'  # noqa: E501
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
@@ -132,3 +136,32 @@ val_pipeline = [
 ]
 
 test_pipeline = val_pipeline
+
+data_root = 'data/coco'
+data = dict(
+    samples_per_gpu=32,
+    workers_per_gpu=2,
+    val_dataloader=dict(samples_per_gpu=32),
+    test_dataloader=dict(samples_per_gpu=32),
+    train=dict(
+        type='TopDownCocoWholeBodyDataset',
+        ann_file=f'{data_root}/annotations/coco_wholebody_train_v1.0.json',
+        img_prefix=f'{data_root}/train2017/',
+        data_cfg=data_cfg,
+        pipeline=train_pipeline,
+        dataset_info={{_base_.dataset_info}}),
+    val=dict(
+        type='TopDownCocoWholeBodyDataset',
+        ann_file=f'{data_root}/annotations/coco_wholebody_val_v1.0.json',
+        img_prefix=f'{data_root}/val2017/',
+        data_cfg=data_cfg,
+        pipeline=val_pipeline,
+        dataset_info={{_base_.dataset_info}}),
+    test=dict(
+        type='TopDownCocoWholeBodyDataset',
+        ann_file=f'{data_root}/annotations/coco_wholebody_val_v1.0.json',
+        img_prefix=f'{data_root}/val2017/',
+        data_cfg=data_cfg,
+        pipeline=test_pipeline,
+        dataset_info={{_base_.dataset_info}}),
+)
