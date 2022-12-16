@@ -1,8 +1,7 @@
 _base_ = [
-    './_base_/default_runtime.py',
-    './_base_/datasets/coco_wholebody.py'
+    '../../../../_base_/default_runtime.py',
+    '../../../../_base_/datasets/coco_wholebody.py'
 ]
-load_from = 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_384x288_dark-741844ba_20200812.pth'  # noqa: E501
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(
@@ -29,53 +28,23 @@ channel_cfg = dict(
 # model settings
 model = dict(
     type='TopDown',
-    pretrained=None,
-    backbone=dict(
-        type='HRNet',
-        in_channels=3,
-        extra=dict(
-            stage1=dict(
-                num_modules=1,
-                num_branches=1,
-                block='BOTTLENECK',
-                num_blocks=(4, ),
-                num_channels=(64, )),
-            stage2=dict(
-                num_modules=1,
-                num_branches=2,
-                block='BASIC',
-                num_blocks=(4, 4),
-                num_channels=(48, 96)),
-            stage3=dict(
-                num_modules=4,
-                num_branches=3,
-                block='BASIC',
-                num_blocks=(4, 4, 4),
-                num_channels=(48, 96, 192)),
-            stage4=dict(
-                num_modules=3,
-                num_branches=4,
-                block='BASIC',
-                num_blocks=(4, 4, 4, 4),
-                num_channels=(48, 96, 192, 384))),
-    ),
+    pretrained='torchvision://resnet152',
+    backbone=dict(type='ResNet', depth=152),
     keypoint_head=dict(
         type='TopdownHeatmapSimpleHead',
-        in_channels=48,
+        in_channels=2048,
         out_channels=channel_cfg['num_output_channels'],
-        num_deconv_layers=0,
-        extra=dict(final_conv_kernel=1, ),
         loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
     train_cfg=dict(),
     test_cfg=dict(
-        flip_test=False,
+        flip_test=True,
         post_process='default',
         shift_heatmap=True,
-        modulate_kernel=17))
+        modulate_kernel=11))
 
 data_cfg = dict(
-    image_size=[288, 384],
-    heatmap_size=[72, 96],
+    image_size=[192, 256],
+    heatmap_size=[48, 64],
     num_output_channels=channel_cfg['num_output_channels'],
     num_joints=channel_cfg['dataset_joints'],
     dataset_channel=channel_cfg['dataset_channel'],
@@ -107,7 +76,7 @@ train_pipeline = [
         type='NormalizeTensor',
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]),
-    dict(type='TopDownGenerateTarget', sigma=3, unbiased_encoding=True),
+    dict(type='TopDownGenerateTarget', sigma=2),
     dict(
         type='Collect',
         keys=['img', 'target', 'target_weight'],
