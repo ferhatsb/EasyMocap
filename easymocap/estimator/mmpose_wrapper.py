@@ -46,7 +46,16 @@ class Detector:
         self.nViews = nViews
         self.show = show
         self.NUM_BODY = 25
-        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21, 22]
+        self.model = cfg['model']
+        if self.model == 'coco':
+            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
+                                     22]
+        elif self.model == 'halpe':
+            self.openpose25_mapping = [0, 18, 6, 8, 10, 5, 7, 9, 19, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 20, 22, 24, 21, 23,
+                                     25]
+        else:
+            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
+                                     22]
 
         det_config = cfg['det_config']
         det_checkpoint = cfg['det_checkpoint']
@@ -66,11 +75,12 @@ class Detector:
         if pose is None:
             bodies = np.zeros((self.NUM_BODY, 3))
             return bodies, [0, 0, 100, 100, 0]
-        poses = pose[self.openpose25_in_23]
-        poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
-        poses[8, 2] = poses[[9, 12], 2].min(axis=0)
-        poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
-        poses[1, 2] = poses[[2, 5], 2].min(axis=0)
+        poses = pose[self.openpose25_mapping]
+        if self.model == 'coco':
+            poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
+            poses[8, 2] = poses[[9, 12], 2].min(axis=0)
+            poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
+            poses[1, 2] = poses[[2, 5], 2].min(axis=0)
         return poses, bbox_from_keypoints(poses)
 
     def get_hand(self, pose, W, H):
@@ -149,13 +159,20 @@ class Detector:
 
             if len(pose_results[0]) > 0:
                 pose_results = pose_results[0]['keypoints']
-
-                results = type('', (object,), {
-                    'left_hand_landmarks': pose_results[91:112],
-                    'right_hand_landmarks': pose_results[112:133],
-                    'face_landmarks': pose_results[23:91],
-                    'pose_landmarks': pose_results[0:23]  # body + foot
-                })()
+                if self.model == 'coco':
+                    results = type('', (object,), {
+                        'left_hand_landmarks': pose_results[91:112],
+                        'right_hand_landmarks': pose_results[112:133],
+                        'face_landmarks': pose_results[23:91],
+                        'pose_landmarks': pose_results[0:23]  # body + foot
+                    })()
+                elif self.model == 'halpe':
+                    results = type('', (object,), {
+                        'left_hand_landmarks': pose_results[94:115],
+                        'right_hand_landmarks': pose_results[115:136],
+                        'face_landmarks': pose_results[26:94],
+                        'pose_landmarks': pose_results[0:26]  # body + foot
+                    })()
             else:
                 results = type('', (object,), {
                     'left_hand_landmarks': None,

@@ -92,7 +92,18 @@ config = {
         'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
         'device': 'cuda',
         'force': False,
-        'ext': '.jpg'
+        'ext': '.jpg',
+        'model': 'coco'
+    },
+    'mmpose-halpe': {
+        'det_config': 'easymocap/estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
+        'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
+        'pose_config': 'easymocap/estimator/MMPose/wholebody/2d_kpt_sview_rgb_img/topdown_heatmap/halpe/hrnet_w48_halpe_384x288_dark_plus.py',
+        'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_halpe_384x288_dark_plus-d13c2588_20211021.pth',
+        'device': 'cuda',
+        'force': False,
+        'ext': '.jpg',
+        'model': 'halpe'
     }
 }
 
@@ -108,7 +119,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, default='openpose', choices=[
         'openpose', 'feet', 'feetcrop', 'openposecrop',
         'yolo-hrnet', 'yolo', 'hrnet', 
-        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face', 'openpifpaf', 'mmpose'],
+        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face', 'openpifpaf', 'mmpose', 'mmpose-halpe'],
         help="model to extract joints from image")
     # Openpose
     parser.add_argument('--openpose', type=str, 
@@ -201,7 +212,7 @@ if __name__ == "__main__":
             from easymocap.estimator.openpifpaf_wrapper import extract_2d
             config[mode]['ext'] = args.ext
             extract_2d(image_root, annot_root, config[mode])
-        elif mode == 'mmpose':
+        elif mode.startswith('mmpose'):
             from easymocap.estimator.mmpose_wrapper import extract_2d
             config[mode]['ext'] = args.ext
             extract_2d(image_root, annot_root, config[mode])
