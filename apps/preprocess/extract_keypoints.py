@@ -93,7 +93,7 @@ config = {
         'device': 'cuda',
         'force': False,
         'ext': '.jpg',
-        'model': 'coco'
+        'model': 'coco-wholebody'
     },
     'mmpose-halpe': {
         'det_config': 'easymocap/estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
@@ -104,6 +104,16 @@ config = {
         'force': False,
         'ext': '.jpg',
         'model': 'halpe'
+    },
+    'mmpose-coco': {
+        'det_config': 'easymocap/estimator/MMPose/mmdet_configs/configs/yolox/yolox_x_8x8_300e_coco.py',
+        'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_x_8x8_300e_coco/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth',
+        'pose_config': 'easymocap/estimator/MMPose/configs/body/2d_kpt_sview_rgb_img/topdown_heatmap/coco/ViTPose_large_coco_256x192.py',
+        'pose_checkpoint': 'easymocap/estimator/MMPose/models/vitpose-l-multi-coco.pth',
+        'device': 'cuda',
+        'force': False,
+        'ext': '.jpg',
+        'model': 'coco'
     }
 }
 
@@ -119,7 +129,8 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, default='openpose', choices=[
         'openpose', 'feet', 'feetcrop', 'openposecrop',
         'yolo-hrnet', 'yolo', 'hrnet', 
-        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face', 'openpifpaf', 'mmpose', 'mmpose-halpe'],
+        'mp-pose', 'mp-holistic', 'mp-handl', 'mp-handr', 'mp-face', 'openpifpaf', 'mmpose', 'mmpose-halpe',
+        'mmpose-coco'],
         help="model to extract joints from image")
     # Openpose
     parser.add_argument('--openpose', type=str, 
