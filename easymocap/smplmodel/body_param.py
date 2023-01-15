@@ -36,6 +36,8 @@ def load_model(gender='neutral', use_cuda=True, model_type='smpl', skel_type='bo
     if device is None:
         if use_cuda and torch.cuda.is_available():
             device = torch.device('cuda')
+        if torch.backends.mps.is_available():
+            device = torch.device("mps")
         else:
             device = torch.device('cpu')
     from .body_model import SMPLlayer
