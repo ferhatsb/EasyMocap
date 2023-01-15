@@ -42,48 +42,20 @@ class Detector:
     NUM_HAND = 21
     NUM_FACE = 68
 
-    flip_map = [[0, 'nose'], [2, 'right_eye'], [1, 'left_eye'], [4, 'right_ear'], [3, 'left_ear'],
-                [6, 'right_shoulder'],
-                [5, 'left_shoulder'], [8, 'right_elbow'], [7, 'left_elbow'], [10, 'right_wrist'], [9, 'left_wrist'],
-                [12, 'right_hip'], [11, 'left_hip'], [14, 'right_knee'], [13, 'left_knee'], [16, 'right_ankle'],
-                [15, 'left_ankle'], [20, 'right_big_toe'], [21, 'right_small_toe'], [22, 'right_heel'],
-                [17, 'left_big_toe'],
-                [18, 'left_small_toe'], [19, 'left_heel'], [39, 'face-16'], [38, 'face-15'], [37, 'face-14'],
-                [36, 'face-13'],
-                [35, 'face-12'], [34, 'face-11'], [33, 'face-10'], [32, 'face-9'], [31, 'face-8'], [30, 'face-7'],
-                [29, 'face-6'],
-                [28, 'face-5'], [27, 'face-4'], [26, 'face-3'], [25, 'face-2'], [24, 'face-1'], [23, 'face-0'],
-                [49, 'face-26'],
-                [48, 'face-25'], [47, 'face-24'], [46, 'face-23'], [45, 'face-22'], [44, 'face-21'], [43, 'face-20'],
-                [42, 'face-19'], [41, 'face-18'], [40, 'face-17'], [50, 'face-27'], [51, 'face-28'], [52, 'face-29'],
-                [53, 'face-30'], [58, 'face-35'], [57, 'face-34'], [56, 'face-33'], [55, 'face-32'], [54, 'face-31'],
-                [68, 'face-45'], [67, 'face-44'], [66, 'face-43'], [65, 'face-42'], [70, 'face-47'], [69, 'face-46'],
-                [62, 'face-39'], [61, 'face-38'], [60, 'face-37'], [59, 'face-36'], [64, 'face-41'], [63, 'face-40'],
-                [77, 'face-54'], [76, 'face-53'], [75, 'face-52'], [74, 'face-51'], [73, 'face-50'], [72, 'face-49'],
-                [71, 'face-48'], [82, 'face-59'], [81, 'face-58'], [80, 'face-57'], [79, 'face-56'], [78, 'face-55'],
-                [87, 'face-64'], [86, 'face-63'], [85, 'face-62'], [84, 'face-61'], [83, 'face-60'], [90, 'face-67'],
-                [89, 'face-66'], [88, 'face-65'], [112, 'right_hand_root'], [113, 'right_thumb1'],
-                [114, 'right_thumb2'],
-                [115, 'right_thumb3'], [116, 'right_thumb4'], [117, 'right_forefinger1'], [118, 'right_forefinger2'],
-                [119, 'right_forefinger3'], [120, 'right_forefinger4'], [121, 'right_middle_finger1'],
-                [122, 'right_middle_finger2'], [123, 'right_middle_finger3'], [124, 'right_middle_finger4'],
-                [125, 'right_ring_finger1'], [126, 'right_ring_finger2'], [127, 'right_ring_finger3'],
-                [128, 'right_ring_finger4'], [129, 'right_pinky_finger1'], [130, 'right_pinky_finger2'],
-                [131, 'right_pinky_finger3'], [132, 'right_pinky_finger4'], [91, 'left_hand_root'], [92, 'left_thumb1'],
-                [93, 'left_thumb2'], [94, 'left_thumb3'], [95, 'left_thumb4'], [96, 'left_forefinger1'],
-                [97, 'left_forefinger2'],
-                [98, 'left_forefinger3'], [99, 'left_forefinger4'], [100, 'left_middle_finger1'],
-                [101, 'left_middle_finger2'],
-                [102, 'left_middle_finger3'], [103, 'left_middle_finger4'], [104, 'left_ring_finger1'],
-                [105, 'left_ring_finger2'], [106, 'left_ring_finger3'], [107, 'left_ring_finger4'],
-                [108, 'left_pinky_finger1'],
-                [109, 'left_pinky_finger2'], [110, 'left_pinky_finger3'], [111, 'left_pinky_finger4']]
-
     def __init__(self, nViews, show=False, **cfg) -> None:
         self.nViews = nViews
         self.show = show
         self.NUM_BODY = 25
-        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21, 22]
+        self.model = cfg['model']
+        if self.model == 'coco':
+            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
+                                     22]
+        elif self.model == 'halpe':
+            self.openpose25_mapping = [0, 18, 6, 8, 10, 5, 7, 9, 19, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 20, 22, 24, 21, 23,
+                                     25]
+        else:
+            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
+                                     22]
 
         det_config = cfg['det_config']
         det_checkpoint = cfg['det_checkpoint']
@@ -103,12 +75,13 @@ class Detector:
         if pose is None:
             bodies = np.zeros((self.NUM_BODY, 3))
             return bodies, [0, 0, 100, 100, 0]
-        poses = pose[self.openpose25_in_23]
-        poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
-        poses[8, 2] = poses[[9, 12], 2].min(axis=0)
-        poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
-        poses[1, 2] = poses[[2, 5], 2].min(axis=0)
-        return poses
+        poses = pose[self.openpose25_mapping]
+        if self.model == 'coco':
+            poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
+            poses[8, 2] = poses[[9, 12], 2].min(axis=0)
+            poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
+            poses[1, 2] = poses[[2, 5], 2].min(axis=0)
+        return poses, bbox_from_keypoints(poses)
 
     def get_hand(self, pose, W, H):
         if pose is None:
@@ -123,9 +96,9 @@ class Detector:
         return pose, bbox_from_keypoints(pose)
 
     def process_body(self, data, results, image_width, image_height):
-        keypoints = self.get_body(results.pose_landmarks[0], image_width, image_height)
+        keypoints, bbox = self.get_body(results.pose_landmarks, image_width, image_height)
         data['keypoints'] = keypoints
-        data['bbox'] = results.pose_landmarks[1]
+        data['bbox'] = bbox
 
     def process_hand(self, data, results, image_width, image_height):
         lm = {'Left': None, 'Right': None}
@@ -144,6 +117,8 @@ class Detector:
 
     def __call__(self, images):
         annots_all = []
+
+
         for nv, image_ in enumerate(images):
             image_height, image_width, _ = image_.shape
             image = cv2.cvtColor(image_, cv2.COLOR_BGR2RGB)
@@ -152,6 +127,15 @@ class Detector:
                 det_model = self.models[nv][0]
                 pose_model = self.models[nv][1]
 
+                dataset = pose_model.cfg.data['test']['type']
+                dataset_info = pose_model.cfg.data['test'].get('dataset_info', None)
+                if dataset_info is None:
+                    print(
+                        'Please set `dataset_info` in the config.'
+                        'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
+                        DeprecationWarning)
+                else:
+                    dataset_info = DatasetInfo(dataset_info)
                 # test a single image, the resulting box is (x1, y1, x2, y2)
                 mmdet_results = inference_detector(det_model, image)
 
@@ -164,6 +148,8 @@ class Detector:
                     person_results,
                     bbox_thr=0.3,
                     format='xyxy',
+                    dataset=dataset,
+                    dataset_info=dataset_info,
                     return_heatmap=False,
                     outputs=None)
 
@@ -172,15 +158,21 @@ class Detector:
             }
 
             if len(pose_results[0]) > 0:
-                pose_bbox = pose_results[0]['bbox']
                 pose_results = pose_results[0]['keypoints']
-
-                results = type('', (object,), {
-                    'left_hand_landmarks': pose_results[91:112],
-                    'right_hand_landmarks': pose_results[112:133],
-                    'face_landmarks': pose_results[23:91],
-                    'pose_landmarks': [pose_results[0:23], pose_bbox]  # body + foot
-                })()
+                if self.model == 'coco':
+                    results = type('', (object,), {
+                        'left_hand_landmarks': pose_results[91:112],
+                        'right_hand_landmarks': pose_results[112:133],
+                        'face_landmarks': pose_results[23:91],
+                        'pose_landmarks': pose_results[0:23]  # body + foot
+                    })()
+                elif self.model == 'halpe':
+                    results = type('', (object,), {
+                        'left_hand_landmarks': pose_results[94:115],
+                        'right_hand_landmarks': pose_results[115:136],
+                        'face_landmarks': pose_results[26:94],
+                        'pose_landmarks': pose_results[0:26]  # body + foot
+                    })()
             else:
                 results = type('', (object,), {
                     'left_hand_landmarks': None,
@@ -250,7 +242,7 @@ if __name__ == "__main__":
             'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
             'pose_config': 'easymocap/estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
             'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
-            'device': 'cpu',
+            'device': 'cuda',
             'force': False,
             'ext': '.jpg'
         }

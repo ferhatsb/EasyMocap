@@ -36,8 +36,7 @@ class Detector:
         self.nViews = nViews
         self.show = show
         self.NUM_BODY = 25
-        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19,
-                                 20, 21, 22]
+        self.openpose25_in_23 = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21, 22]
         model_name = openpifpaf.Predictor
         self.models = [
             model_name(**cfg) for nv in range(nViews)
@@ -59,10 +58,10 @@ class Detector:
             return bodies, [0, 0, 100, 100, 0]
         poses = self.to_array(pose, W, H)
         poses = poses[self.openpose25_in_23]
-        poses[8, :2] = poses[[11, 12], :2].mean(axis=0)
-        poses[8, 2] = poses[[11, 12], 2].min(axis=0)
-        poses[1, :2] = poses[[5, 6], :2].mean(axis=0)
-        poses[1, 2] = poses[[5, 6], 2].min(axis=0)
+        poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
+        poses[8, 2] = poses[[9, 12], 2].min(axis=0)
+        poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
+        poses[1, 2] = poses[[2, 5], 2].min(axis=0)
         return poses, bbox_from_keypoints(poses)
 
     def get_hand(self, pose, W, H):
