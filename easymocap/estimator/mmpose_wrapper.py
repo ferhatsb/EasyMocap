@@ -3,16 +3,11 @@ import cv2
 from easymocap.mytools import Timer
 import numpy as np
 
-from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
-                         process_mmdet_results, vis_pose_result)
 from mmpose.datasets import DatasetInfo
 
-try:
-    from mmdet.apis import inference_detector, init_detector
-
-    has_mmdet = True
-except (ImportError, ModuleNotFoundError):
-    has_mmdet = False
+from mmdet.apis import inference_detector, init_detector
+from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
+                         process_mmdet_results, vis_pose_result)
 
 
 def bbox_from_keypoints(keypoints, rescale=1.2, detection_thresh=0.05, MIN_PIXEL=5):
@@ -47,15 +42,15 @@ class Detector:
         self.show = show
         self.NUM_BODY = 25
         self.model = cfg['model']
-        if self.model == 'coco':
+        if self.model == 'coco-wholebody':
             self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
                                      22]
         elif self.model == 'halpe':
             self.openpose25_mapping = [0, 18, 6, 8, 10, 5, 7, 9, 19, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 20, 22, 24, 21, 23,
                                      25]
-        else:
-            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 17, 18, 19, 20, 21,
-                                     22]
+        elif self.model == 'coco':
+            self.openpose25_mapping = [0, 0, 6, 8, 10, 5, 7, 9, 0, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3, 15, 15, 15, 16, 16,
+                                     16]
 
         det_config = cfg['det_config']
         det_checkpoint = cfg['det_checkpoint']
@@ -76,7 +71,7 @@ class Detector:
             bodies = np.zeros((self.NUM_BODY, 3))
             return bodies, [0, 0, 100, 100, 0]
         poses = pose[self.openpose25_mapping]
-        if self.model == 'coco':
+        if self.model.startswith('coco'):
             poses[8, :2] = poses[[9, 12], :2].mean(axis=0)
             poses[8, 2] = poses[[9, 12], 2].min(axis=0)
             poses[1, :2] = poses[[2, 5], :2].mean(axis=0)
@@ -159,7 +154,7 @@ class Detector:
 
             if len(pose_results[0]) > 0:
                 pose_results = pose_results[0]['keypoints']
-                if self.model == 'coco':
+                if self.model == 'coco-wholebody':
                     results = type('', (object,), {
                         'left_hand_landmarks': pose_results[91:112],
                         'right_hand_landmarks': pose_results[112:133],
@@ -173,6 +168,20 @@ class Detector:
                         'face_landmarks': pose_results[26:94],
                         'pose_landmarks': pose_results[0:26]  # body + foot
                     })()
+                elif self.model == 'coco':
+                    results = type('', (object,), {
+                        'left_hand_landmarks': None,
+                        'right_hand_landmarks': None,
+                        'face_landmarks': None,
+                        'pose_landmarks': pose_results[0:17]  # just body
+                    })()
+                else:
+                    results = type('', (object,), {
+                        'left_hand_landmarks': None,
+                        'right_hand_landmarks': None,
+                        'face_landmarks': None,
+                        'pose_landmarks': None
+                    })()
             else:
                 results = type('', (object,), {
                     'left_hand_landmarks': None,
@@ -182,9 +191,12 @@ class Detector:
                 })()
 
             self.process_body(data, results, image_width, image_height)
-            self.process_hand(data, results, image_width, image_height)
-            with Timer('- face', True):
-                self.process_face(data, results, image_width, image_height, image=image)
+
+            # coco has no face or hands even feet
+            if self.model != 'coco':
+                self.process_hand(data, results, image_width, image_height)
+                with Timer('- face', True):
+                    self.process_face(data, results, image_width, image_height, image=image)
             annots = {
                 'filename': '{}/run.jpg'.format(nv),
                 'height': image_height,
@@ -238,13 +250,14 @@ if __name__ == "__main__":
     out = args.out
     config = {
         'mmpose': {
-            'det_config': 'easymocap/estimator/MMPose/faster_rcnn_r50_fpn_coco.py',
-            'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/faster_rcnn/faster_rcnn_r50_fpn_1x_coco/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth',
-            'pose_config': 'easymocap/estimator/MMPose/hrnet_w48_coco_wholebody_384x288_dark_plus.py',
-            'pose_checkpoint': 'https://download.openmmlab.com/mmpose/top_down/hrnet/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth',
+            'det_config': 'easymocap/estimator/MMPose/mmdet_configs/configs/yolox/yolox_x_8x8_300e_coco.py',
+            'det_checkpoint': 'https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_x_8x8_300e_coco/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth',
+            'pose_config': 'easymocap/estimator/MMPose/configs/body/2d_kpt_sview_rgb_img/topdown_heatmap/coco/ViTPose_large_coco_256x192.py',
+            'pose_checkpoint': 'easymocap/estimator/MMPose/models/vitpose-l-multi-coco.pth',
             'device': 'cuda',
             'force': False,
-            'ext': '.jpg'
+            'ext': '.jpg',
+            'model': 'coco'
         }
     }
     extract_2d(path, out, config['mmpose'])
